@@ -10,4 +10,5 @@ dependencies = [
     "numpy>=2.3.4",
     "pandas>=2.3.3",
     "reaktiv>=0.19.3",
+    "scipy>=1.16.3",
 ]
