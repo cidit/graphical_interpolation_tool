@@ -16,10 +16,11 @@ from matplotlib.backend_bases import MouseButton
 from pandas import DataFrame
 import sys
 from scipy import interpolate
+import nidaqmx
 
 window = Tk()
 # setting the title and
-window.title("Plotting in Tkinter")
+window.title("Graphical interpolation tool")
 # setting the dimensions of
 # the main window
 window.geometry("1000x750")
@@ -57,36 +58,6 @@ def plot(window: Tk):
 filename = Signal(None)
 
 
-def browse_file_fn():
-    file_name = filedialog.askopenfilename(
-        filetypes=[("CSV", "*.csv")],
-        title="Select the data file",
-    )
-    filename.set(file_name)
-
-
-browse_file_btn = Button(
-    master=window,
-    command=browse_file_fn,
-    height=2,
-    width=10,
-    text="browse file",
-)
-browse_file_btn.pack()
-
-
-filename_label = Label(window, width=100, height=4)
-filename_label.pack()
-results_label = Label(window, width=80, height=4)
-results_label.pack()
-
-update_filename_label_effect = Effect(
-    lambda: filename_label.configure(text=f"file opened: {filename()}")
-)
-
-# filename_log_on_update_effect = Effect(lambda: print(f"filename changed: {filename()}"))
-
-
 def parse_data():
     def csvstr_to_flt(str):
         return float(str.replace(",", "."))
@@ -107,11 +78,66 @@ def parse_data():
 
 data = Computed(parse_data)
 
+
+def browse_file_fn():
+    file_name = filedialog.askopenfilename(
+        filetypes=[("CSV", "*.csv")],
+        title="Select the data file",
+    )
+    filename.set(file_name)
+
+
+browse_file_btn = Button(
+    master=window,
+    command=browse_file_fn,
+    height=2,
+    width=10,
+    text="browse file",
+)
+browse_file_btn.pack()
+
+
+filename_label = Label(window, width=100, height=1)
+filename_label.pack()
+
+results_label = Label(window, height=4, anchor="w", justify="left")
+results_label.pack()
+
+update_filename_label_effect = Effect(
+    lambda: filename_label.configure(text=f"file opened: {filename()}")
+)
+
+filename_log_on_update_effect = Effect(lambda: print(f"filename changed: {filename()}"))
+
+send_to_nidaq = Signal(False)
+send_to_nidaq_btn = Button(
+    master=window,
+    command=lambda: send_to_nidaq.update(lambda old: not old),
+    height=2,
+    width=20,
+)
+send_to_nidaq_btn.pack()
+
+
+def update_send_to_nidaq_btn_fn():
+    if send_to_nidaq():
+        send_to_nidaq_btn.configure(text="Sending voltage to nidaq", bg="green")
+    else:
+        send_to_nidaq_btn.configure(text="Not interacting with nidaq", bg="red")
+
+
+update_send_to_nidaq_btn_effect = Effect(update_send_to_nidaq_btn_fn)
+
 click_data = Signal(None)
+
+fig = Figure(figsize=(5, 5), dpi=100)
+plot1 = fig.add_subplot(111)
+canvas = FigureCanvasTkAgg(fig, master=window)
+canvas.mpl_connect("button_press_event", click_data.set)
 
 
 def reset_click_data_on_data_change_fn():
-    data()  # simply bind this
+    data()  # just used to bind the signal to the effect
     click_data.set(None)
 
 
@@ -133,28 +159,38 @@ def compute_resulting_voltage():
     if selected_loss() is None or data() is None:
         return None
     f = interpolate.interp1d(x=data()["y"], y=data()["x"], assume_sorted=False)
-    return f(selected_loss())
-    # return np.interp(x=selected_loss(),
-    #                  xp=data()["y"].iloc[::-1], # .iloc[::-1] reverses the frame. np.interp expects increasing data
-    #                  fp=data()["x"].iloc[::-1],)
+    if data()["y"].min() <= selected_loss() <= data()["y"].max():
+        return f(selected_loss())
+    else:
+        return None
 
 
 resulting_voltage = Computed(compute_resulting_voltage)
 
-update_results_label_effect = Effect(
-    lambda: results_label.configure(
-        text=f"Selected loss:\t{selected_loss():.2}uW\nResulting voltage:\t{resulting_voltage():.2}V"
+
+def update_results_label_fn():
+    sl = selected_loss() if selected_loss() is not None else 0.0
+    rv = resulting_voltage() if resulting_voltage() is not None else 0.0
+    results_label.configure(
+        text=f"Selected loss:\t{sl:.2}uW\nResulting voltage:\t{rv:.2}V"
     )
-)
 
-log_click_data_effect = Effect(lambda: print(f"{selected_loss()}uW"))
-log_resulting_voltage_effect = Effect(lambda: print(f"{resulting_voltage()}V"))
-# update_selected
 
-fig = Figure(figsize=(5, 5), dpi=100)
-plot1 = fig.add_subplot(111)
-canvas = FigureCanvasTkAgg(fig, master=window)
-canvas.mpl_connect("button_press_event", click_data.set)
+update_results_label_effect = Effect(update_results_label_fn)
+
+
+def send_voltage_to_nidaq_fn():
+    if not send_to_nidaq() or resulting_voltage() is None:
+        return
+    try:
+        with nidaqmx.Task() as task:
+            task.ao_channels.add_ao_voltage_chan("Dev1/ao0")
+            task.write(resulting_voltage())
+    except nidaqmx.errors.DaqNotFoundError as _:
+        print("No NIDAQ available! please ensure one is connected first")
+        send_to_nidaq.set(False)
+
+send_voltage_to_nidaq_effect = Effect(send_voltage_to_nidaq_fn)
 
 
 def draw_plot():
@@ -181,6 +217,6 @@ def draw_plot():
 
 make_plot_effect = Effect(draw_plot)
 
+
 window.bind("<Escape>", sys.exit)
-# run the gui
 window.mainloop()
