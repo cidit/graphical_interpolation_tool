@@ -7,53 +7,23 @@ button that outputs the voltage to the NI myDAQ
 
 """
 
-from tkinter import Tk, Button, filedialog, Label
+import tkinter as tk
 from reaktiv import Signal, Computed, Effect
 import csv
 from matplotlib.figure import Figure
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.backend_bases import MouseButton
 from pandas import DataFrame
 import sys
 from scipy import interpolate
 import nidaqmx
 
-window = Tk()
-# setting the title and
+window = tk.Tk()
 window.title("Graphical interpolation tool")
-# setting the dimensions of
-# the main window
-window.geometry("1000x750")
 
+main_frame = tk.Frame(window, padx=10, pady=10)
+main_frame.grid(column=0, row=0, sticky=(tk.N, tk.W,tk.E,tk.S))
 
-# plot function is created for
-# plotting the graph in
-# tkinter window
-def plot(window: Tk):
-    # the figure that will contain the plot
-    fig = Figure(figsize=(5, 5), dpi=100)
-    # list of squares
-    y = [i**2 for i in range(101)]
-    # adding the subplot
-    plot1 = fig.add_subplot(111)
-    # plotting the graph
-    plot1.plot(y)
-    # creating the Tkinter canvas
-    # containing the Matplotlib figure
-    canvas = FigureCanvasTkAgg(fig, master=window)
-    canvas.draw()
-    # placing the canvas on the Tkinter window
-    canvas.get_tk_widget().pack()
-    # creating the Matplotlib toolbar
-    toolbar = NavigationToolbar2Tk(canvas, window)
-    toolbar.update()
-    # placing the toolbar on the Tkinter window
-    canvas.get_tk_widget().pack()
-
-
-# button that would displays the plot
-# plot_button = Button(master=window, command=plot, height=2, width=10, text="Plot")
-# plot_button.pack()
 
 filename = Signal(None)
 
@@ -78,30 +48,35 @@ def parse_data():
 
 data = Computed(parse_data)
 
+file_frame = tk.Frame(main_frame, pady=5, padx=3)
+file_frame.grid(column=0, row=0, sticky=(tk.W,tk.E))
 
 def browse_file_fn():
-    file_name = filedialog.askopenfilename(
+    file_name = tk.filedialog.askopenfilename(
         filetypes=[("CSV", "*.csv")],
         title="Select the data file",
     )
     filename.set(file_name)
 
 
-browse_file_btn = Button(
-    master=window,
+browse_file_btn = tk.Button(
+    master=file_frame,
     command=browse_file_fn,
     height=2,
-    width=10,
+    width=8,
     text="browse file",
 )
-browse_file_btn.pack()
+browse_file_btn.grid(column=0, row=0, sticky=(tk.W, tk.E))
 
 
-filename_label = Label(window, width=100, height=1)
-filename_label.pack()
+filename_label = tk.Label(file_frame, anchor=tk.W, justify="left", wraplength=400)
+filename_label.grid(column=1, row=0, sticky=(tk.W, tk.E))
 
-results_label = Label(window, height=4, anchor="w", justify="left")
-results_label.pack()
+results_frame = tk.Frame(main_frame)
+results_frame.grid(column=0, row=1, sticky=(tk.W,tk.E))
+
+results_label = tk.Label(results_frame, height=4, anchor="w", justify="left")
+results_label.grid(column=0, row=2, sticky=(tk.N, tk.W,tk.E,tk.S))
 
 update_filename_label_effect = Effect(
     lambda: filename_label.configure(text=f"file opened: {filename()}")
@@ -110,13 +85,13 @@ update_filename_label_effect = Effect(
 filename_log_on_update_effect = Effect(lambda: print(f"filename changed: {filename()}"))
 
 send_to_nidaq = Signal(False)
-send_to_nidaq_btn = Button(
-    master=window,
+send_to_nidaq_btn = tk.Button(
+    master=results_frame,
     command=lambda: send_to_nidaq.update(lambda old: not old),
     height=2,
     width=20,
 )
-send_to_nidaq_btn.pack()
+send_to_nidaq_btn.grid(column=1, row=2, sticky=(tk.N, tk.W,tk.E,tk.S))
 
 
 def update_send_to_nidaq_btn_fn():
@@ -132,7 +107,7 @@ click_data = Signal(None)
 
 fig = Figure(figsize=(5, 5), dpi=100)
 plot1 = fig.add_subplot(111)
-canvas = FigureCanvasTkAgg(fig, master=window)
+canvas = FigureCanvasTkAgg(fig, master=results_frame)
 canvas.mpl_connect("button_press_event", click_data.set)
 
 
@@ -212,7 +187,8 @@ def draw_plot():
     canvas.draw()
     # canvas.get_tk_widget().bind("<Button-1>", lambda e: print(e.x, e.y))
     # placing the canvas on the Tkinter window
-    canvas.get_tk_widget().pack()
+    canvas.get_tk_widget().grid(column=0, row=0, columnspan=2, rowspan=2, sticky=(tk.N, tk.W,tk.E,tk.S))
+    # canvas.get_tk_widget().pack()
 
 
 make_plot_effect = Effect(draw_plot)
