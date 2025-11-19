@@ -18,6 +18,7 @@ import sys
 from scipy import interpolate
 import nidaqmx
 import math
+import numpy as np
 
 window = tk.Tk()
 window.title("Graphical interpolation tool")
@@ -44,6 +45,10 @@ def parse_data():
         for row in reader:
             data["x"].append(csvstr_to_flt(row[0]))
             data["y"].append(10*math.log10(csvstr_to_flt(row[1])/1e6))
+        # data["y"] = [data["y"][0]].extend([d - data["y"][0] for d in data["y"][1:]]) # rectify data with initial
+        m = np.max(data["y"])
+        data["y"] = [y - m for y in data["y"]]
+            
         return DataFrame.from_dict(data)
 
 
