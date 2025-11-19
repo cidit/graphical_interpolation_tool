@@ -17,6 +17,7 @@ from pandas import DataFrame
 import sys
 from scipy import interpolate
 import nidaqmx
+import math
 
 window = tk.Tk()
 window.title("Graphical interpolation tool")
@@ -42,7 +43,7 @@ def parse_data():
         reader = csv.reader(f)
         for row in reader:
             data["x"].append(csvstr_to_flt(row[0]))
-            data["y"].append(csvstr_to_flt(row[1]))
+            data["y"].append(10*math.log10(csvstr_to_flt(row[1])/1e6))
         return DataFrame.from_dict(data)
 
 
@@ -147,7 +148,7 @@ def update_results_label_fn():
     sl = selected_loss() if selected_loss() is not None else 0.0
     rv = resulting_voltage() if resulting_voltage() is not None else 0.0
     results_label.configure(
-        text=f"Selected loss:\t{sl:.2}uW\nResulting voltage:\t{rv:.2}V"
+        text=f"Selected loss:\t{sl:.3}dBm\nResulting voltage:\t{rv:.2}V"
     )
 
 
@@ -159,8 +160,8 @@ def send_voltage_to_nidaq_fn():
         return
     try:
         with nidaqmx.Task() as task:
-            task.ao_channels.add_ao_voltage_chan("Dev1/ao0")
-            task.write(resulting_voltage())
+            task.ao_channels.add_ao_voltage_chan("myDAQ2/ao0")
+            task.write([resulting_voltage()])
     except nidaqmx.errors.DaqNotFoundError as _:
         print("No NIDAQ available! please ensure one is connected first")
         send_to_nidaq.set(False)
@@ -171,7 +172,7 @@ send_voltage_to_nidaq_effect = Effect(send_voltage_to_nidaq_fn)
 def draw_plot():
     plot1.axes.clear()
     plot1.set_xlabel("Voltage (V)")
-    plot1.set_ylabel("Loss (uW)")
+    plot1.set_ylabel("Loss (dBm)")
 
     if data() is not None:
         plot1.plot(data()["x"], data()["y"])
