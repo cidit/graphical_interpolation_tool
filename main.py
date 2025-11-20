@@ -8,7 +8,8 @@ button that outputs the voltage to the NI myDAQ
 """
 
 import tkinter as tk
-from reaktiv import Signal, Computed, Effect
+from tkinter import ttk
+from reaktiv import Signal, Computed, Effect, LinkedSignal
 import csv
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -133,8 +134,12 @@ def compute_selected_loss():
     return click_data().ydata
 
 
-selected_loss = Computed(compute_selected_loss)
+selected_loss = LinkedSignal(compute_selected_loss)
 
+loss_entry = tk.StringVar()
+loss_entry_box = ttk.Entry(results_frame, textvariable=loss_entry)
+loss_entry_box.bind('<Return>', lambda _e: selected_loss.set(float(loss_entry.get())))
+loss_entry_box.grid(column=1, row=3)
 
 def compute_resulting_voltage():
     if selected_loss() is None or data() is None:
@@ -153,7 +158,7 @@ def update_results_label_fn():
     sl = selected_loss() if selected_loss() is not None else 0.0
     rv = resulting_voltage() if resulting_voltage() is not None else 0.0
     results_label.configure(
-        text=f"Selected loss:\t{sl:.3}dBm\nResulting voltage:\t{rv:.2}V"
+        text=f"Selected loss:\t{sl:.3}dBm\nResulting voltage:\t{rv:.3}V"
     )
 
 
@@ -165,7 +170,7 @@ def send_voltage_to_nidaq_fn():
         return
     try:
         with nidaqmx.Task() as task:
-            task.ao_channels.add_ao_voltage_chan("myDAQ2/ao0")
+            task.ao_channels.add_ao_voltage_chan("myDAQ2/ao1")
             task.write([resulting_voltage()])
     except nidaqmx.errors.DaqNotFoundError as _:
         print("No NIDAQ available! please ensure one is connected first")
