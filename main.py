@@ -98,7 +98,7 @@ send_to_nidaq_btn = tk.Button(
     height=2,
     width=20,
 )
-send_to_nidaq_btn.grid(column=1, row=2, sticky=(tk.N, tk.W,tk.E,tk.S))
+send_to_nidaq_btn.grid(column=1, row=3, sticky=(tk.N, tk.W,tk.E,tk.S))
 
 
 def update_send_to_nidaq_btn_fn():
@@ -136,10 +136,29 @@ def compute_selected_loss():
 
 selected_loss = LinkedSignal(compute_selected_loss)
 
+class EntryWithPlaceholder(tk.Entry):
+    def __init__(self, *args, **kwargs):
+        self.placeholder = kwargs.pop("placeholder", "")
+        super().__init__(*args, **kwargs)
+
+        self.insert("end", self.placeholder)
+        self.bind("<FocusIn>", self.remove_placeholder)
+        self.bind("<FocusOut>", self.add_placeholder)
+
+    def remove_placeholder(self, _event):
+        """Remove placeholder text, if present"""
+        if self.get() == self.placeholder:
+            self.delete(0, "end")
+
+    def add_placeholder(self, _event):
+        """Add placeholder text if the widget is empty"""
+        if self.placeholder and self.get() == "":
+            self.insert(0, self.placeholder)
+
 loss_entry = tk.StringVar()
-loss_entry_box = ttk.Entry(results_frame, textvariable=loss_entry)
+loss_entry_box = EntryWithPlaceholder(results_frame, textvariable=loss_entry, width=30, placeholder="or type the loss yourself (in db)")
 loss_entry_box.bind('<Return>', lambda _e: selected_loss.set(float(loss_entry.get())))
-loss_entry_box.grid(column=1, row=3)
+loss_entry_box.grid(column=0, row=3)
 
 def compute_resulting_voltage():
     if selected_loss() is None or data() is None:
