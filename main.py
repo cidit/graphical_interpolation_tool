@@ -116,6 +116,7 @@ fig = Figure(figsize=(5, 5), dpi=100)
 plot1 = fig.add_subplot(111)
 canvas = FigureCanvasTkAgg(fig, master=results_frame)
 canvas.mpl_connect("button_press_event", click_data.set)
+canvas.mpl_connect("motion_notify_event", click_data.set)
 
 
 def reset_click_data_on_data_change_fn():
@@ -126,15 +127,15 @@ def reset_click_data_on_data_change_fn():
 reset_click_data_on_data_change_effect = Effect(reset_click_data_on_data_change_fn)
 
 
-def compute_selected_loss():
-    if click_data() is None:
+def compute_selected_loss(new_click_data, prev_selected_loss):
+    if new_click_data is None:
         return None
-    if click_data().button != MouseButton.LEFT:
-        return None
-    return click_data().ydata
+    if new_click_data.button != MouseButton.LEFT:
+        return prev_selected_loss.value if prev_selected_loss else None
+    return new_click_data.ydata
 
 
-selected_loss = LinkedSignal(compute_selected_loss)
+selected_loss = LinkedSignal(source=click_data, computation=compute_selected_loss)
 
 class EntryWithPlaceholder(tk.Entry):
     def __init__(self, *args, **kwargs):
