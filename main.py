@@ -8,7 +8,6 @@ button that outputs the voltage to the NI myDAQ
 """
 
 import tkinter as tk
-from tkinter import ttk
 from reaktiv import Signal, Computed, Effect, LinkedSignal
 import csv
 from matplotlib.figure import Figure
